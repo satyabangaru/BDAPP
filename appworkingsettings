@@ -1,0 +1,913 @@
+var web;
+//var user;
+var hostweburl;
+var appweburl;
+var itemArray;
+var listName;
+var lists;
+var context;
+var factory;
+var appContextSite;
+
+var collListItem;
+var collListItems;
+var collListItems2;
+var collListItems3;
+var collListItems4;
+var collListItems5;
+var collGroup;
+var collUser;
+
+
+var CatListName = "CatList";
+
+//Instrument List
+var InstrumentMetadataListName = "InstrumentList";
+var InstrumentMetadataListInstrumentFieldName = 'Instrument';
+var InstrumentMetadataListCatFieldName = 'Category';
+
+//Instrumment Doc Lib
+var InstrumentDocName = "InstrumentDoc";
+var InstrumentPagesName = "Pages";
+var DistributorsGroupName = "Distributors";
+
+
+var hiddenListName = "DistributorPermissionList";
+var hiddenListInstrumentFieldName = "InstrumentName";
+var hiddenListUserFieldName = "UserName";
+
+//Control Names
+var TableID = "resultTab";
+var catDropDownListID = 'selCat';
+var userDropDownListID = 'selDist';
+
+
+// This function is executed after the DOM is ready and SharePoint scripts are loaded
+// Place any code you want to run when Default.aspx is loaded in this function
+// The code creates a context object which is needed to use the SharePoint object model
+function sharePointReady() {
+    try {
+        itemArray = new Array();
+        listName = decodeURIComponent(
+           getQueryStringParameter('StringProperty1')
+           );
+        hostweburl =
+             decodeURIComponent(
+                 getQueryStringParameter('SPHostUrl')
+         );
+        appweburl =
+            decodeURIComponent(
+                getQueryStringParameter('SPAppWebUrl')
+         );
+
+        var scriptbase = hostweburl + '/_layouts/15/';
+
+        $.getScript(scriptbase + 'SP.Runtime.js',
+            function () {
+                $.getScript(scriptbase + 'SP.js',
+                    function () {
+
+                        $.getScript(scriptbase + 'SP.RequestExecutor.js', pageOnLoad);
+
+                    }
+                );
+            }
+        );
+    }
+    finally {
+        SetProgressBar(false);
+    }
+}
+function getQueryStringParameter(param) {
+    var params = document.URL.split("?")[1].split("&");
+    var strParams = "";
+    for (var i = 0; i < params.length; i = i + 1) {
+        var singleParam = params[i].split("=");
+        if (singleParam[0] == param) {
+            return singleParam[1];
+        }
+    }
+}
+
+
+//****************************************************ON LOAD FUNCTIONS******************************************************************
+//Below is total functionality executed onload
+//Populate Catageory
+//Populate Users
+
+//OnLoad functions
+function pageOnLoad() {
+    try {
+        SetProgressBar(true);
+        populateDistributors();
+    }
+    catch (e) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + 'On page load Failed' + '\n' + e.description+ '\n' + e.message);
+
+    }
+    finally {
+        SetProgressBar(false);
+        
+    }
+}
+
+//Get the settings from settings list
+function getSettings() {
+    context = new SP.ClientContext(appweburl);
+    factory = new SP.ProxyWebRequestExecutorFactory(appweburl);
+    context.set_webRequestExecutorFactory(factory);
+    appContextSite = new SP.AppContextSite(context, hostweburl);
+    this.web = appContextSite.get_web();
+    var oList = this.web.get_lists().getByTitle(hiddenListName);
+    var userName = getSelectedValue(userDropDownListID);
+    var camlQuery = SP.CamlQuery.createAllItemsQuery();
+    this.collListItems5 = oList.getItems(camlQuery);
+    context.load(this.collListItems5);
+
+    function onGetSettingsSucceeded() {
+        var listItemEnumerator = this.collListItems5.getEnumerator();
+        document.getElementById('originalValues').value = '';
+        instrumentNames = instrumentNames + ';';
+        while (listItemEnumerator.moveNext()) {
+            var oListItem = listItemEnumerator.get_current();
+            var instrumentName = oListItem.get_item(hiddenListInstrumentFieldName)
+
+            //catList Name 
+            CatListName = oListItem.get_item('CategoryListName');
+
+            //Instrument List
+            InstrumentMetadataListName = oListItem.get_item(hiddenListInstrumentFieldName);
+            InstrumentMetadataListInstrumentFieldName = oListItem.get_item(hiddenListInstrumentFieldName);
+            InstrumentMetadataListCatFieldName = oListItem.get_item(hiddenListInstrumentFieldName);
+
+            //Instrumment Doc Lib
+            InstrumentDocName = oListItem.get_item(hiddenListInstrumentFieldName);
+            InstrumentPagesName = oListItem.get_item(hiddenListInstrumentFieldName);
+            DistributorsGroupName = oListItem.get_item(hiddenListInstrumentFieldName);
+
+            //Hidden list name
+            hiddenListName = oListItem.get_item(hiddenListInstrumentFieldName);
+            hiddenListInstrumentFieldName = oListItem.get_item(hiddenListInstrumentFieldName);
+            hiddenListUserFieldName = oListItem.get_item(hiddenListInstrumentFieldName);
+        }
+    }
+
+    function onGetSettingsFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + 'Get Pages to remove permissions Failed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+    }
+
+}
+
+//Populate Users
+function populateDistributors() {
+    context = new SP.ClientContext(appweburl);
+    factory = new SP.ProxyWebRequestExecutorFactory(appweburl);
+    context.set_webRequestExecutorFactory(factory);
+    appContextSite = new SP.AppContextSite(context, hostweburl);
+    this.web = appContextSite.get_web();
+    this.collGroup = this.web.get_siteGroups();
+    context.load(this.collGroup);
+    context.executeQueryAsync(Function.createDelegate(this, onGetGroupSucceeded),
+                            Function.createDelegate(this, onGetGroupFailed));
+
+    function onGetGroupSucceeded() {
+
+        var groupEnumerator = this.collGroup.getEnumerator();
+        while (groupEnumerator.moveNext()) {
+            var oGroup = groupEnumerator.get_current();
+            if (oGroup.get_title() == DistributorsGroupName) {
+                this.collUser = oGroup.get_users();
+                context.load(this.collUser);
+                context.executeQueryAsync(Function.createDelegate(this, onGetUsersFromGroupSucceeded),
+                                          Function.createDelegate(this, onGetUsersFromGroupQueryFailed));
+            }
+        }
+    }
+
+
+    function onGetGroupFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + 'OnGetGroupFailed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+
+    }
+
+    function onGetUsersFromGroupSucceeded() {
+        var userEnumerator = this.collUser.getEnumerator();
+        while (userEnumerator.moveNext()) {
+            var oUser = userEnumerator.get_current();
+            var userTitle = oUser.get_title()
+            var userLoginName = oUser.get_loginName();
+            addOptions(userDropDownListID, userTitle, userLoginName);
+        }
+    }
+    function onGetUsersFromGroupQueryFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + 'onGetUsersFromGroupQueryFailed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+
+
+    }
+
+    populateCat();
+}
+
+//Populate Catageory
+function populateCat() {
+    var oList = this.web.get_lists().getByTitle(CatListName);
+    //var camlQuery = new SP.CamlQuery();
+    //camlQuery.set_viewXml('<View><RowLimit>100</RowLimit></View>');
+    var camlQuery = SP.CamlQuery.createAllItemsQuery();
+    this.collListItem = oList.getItems(camlQuery);
+    context.load(this.collListItem);
+    context.executeQueryAsync(Function.createDelegate(this, onGetCatSucceeded), Function.createDelegate(this, onGetCatFailed));
+
+    function onGetCatSucceeded(sender, args) {
+        var listItemEnumerator = this.collListItem.getEnumerator();
+        while (listItemEnumerator.moveNext()) {
+            var oListItem = listItemEnumerator.get_current();
+            var itemId = oListItem.get_id();
+            var itemTitle = oListItem.get_item('Title');
+            addOptions(catDropDownListID, itemTitle, itemId);
+        }
+    }
+
+    function onGetCatFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' +'Query to populate Cat Failed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+    }
+}
+
+//Add option to dropdown list
+function addOptions(ddlName, optionText, OptionValue) {
+    $("#" + ddlName).append('<option value=' + OptionValue + '>' + optionText + '</option>');
+}
+
+
+
+//******************************Button Fetch Event Handlers and Supporting Functions*******************************************************
+//What Featch do
+//1. Get the instrument from Instrument List based on Cat
+//2. Check user is having permissions on instrument or not
+//3. If user is having permissions check box will be checked 
+
+function btnFetch_Click() {
+    try {
+
+        ShowHideResultDiv(true, 'resultDiv');
+        enableDisableControls(false, 'btnSave');
+        btnCancel_Click();
+        var validationMessage = '';
+        var selectedCat = getSelectedText(catDropDownListID);
+        var selectedDistributor = getSelectedText(userDropDownListID);
+        if (selectedCat == '') {
+            validationMessage = 'Instrument Category*' + '\n';
+        }
+        if (selectedDistributor == '') {
+            validationMessage = validationMessage + 'Distributor/Contractor*' + '\n';
+        }
+
+        if (validationMessage != '') {
+            $('#lblResult').val('Please fill required information.' + '\n' + validationMessage );
+            return;
+        }
+        fetchData();
+    }
+    catch (e) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + 'btnFetch_Click' + '\n' + e.description + '\n' + e.message);
+    }
+    finally {
+        SetProgressBar(false);
+    }
+
+}
+
+function fetchData() {
+    try
+    {
+        enableDisableControls(true, 'btnFetch');
+        this.web = appContextSite.get_web();
+        var oList = this.web.get_lists().getByTitle(InstrumentMetadataListName);
+
+        var cat = getSelectedText(catDropDownListID);
+        var camlQuery = new SP.CamlQuery();
+        camlQuery.set_viewXml('<View Scope=\'RecursiveAll\'>' +
+                                        '<Query>' +
+                                            '<Where>' +
+                                            '<Eq>' +
+                                                '<FieldRef Name=' + '\'' + InstrumentMetadataListCatFieldName + '\'' + '/>' +
+                                                '<Value Type=\'LookUp\'>' + cat + '</Value>' +
+                                            '</Eq>' +
+                                            '</Where>' +
+                                        '</Query>' +
+                               '</View>');
+
+        this.collListItem = oList.getItems(camlQuery);
+
+        context.load(this.collListItem);
+        context.executeQueryAsync(Function.createDelegate(this, onFetchDataSucceeded), Function.createDelegate(this, onFetchDataFailed));
+
+
+        function onFetchDataSucceeded(sender, args) {
+
+            var listItemInfo = '';
+        
+            var listItemEnumerator = this.collListItem.getEnumerator();
+            while (listItemEnumerator.moveNext()) {
+                var oListItem = listItemEnumerator.get_current();
+                var iName = oListItem.get_item('Title');
+                if (listItemInfo == '') {
+                    listItemInfo = iName;
+
+                }
+                else {
+                    listItemInfo = listItemInfo + ";" + iName;
+                }
+                addTableRow(iName);
+            }
+            checkUserPermissionsOnInstrument(listItemInfo);
+
+        }
+
+        function onFetchDataFailed(sender, args) {
+            var lblResult = $('#lblResult').val();
+            $('#lblResult').val(lblResult + '\n' + 'onFetchDataFailed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+
+        }
+    }
+    catch (e) {
+    }
+    finally {
+        setTimeout(function () { $('#' + 'btnFetch').prop('disabled', false); }, 5000);
+    }
+}
+
+function checkUserPermissionsOnInstrument(instrumentNames) {
+    try {
+        this.web = appContextSite.get_web();
+        var oList = this.web.get_lists().getByTitle(hiddenListName);
+
+        var userName = getSelectedValue(userDropDownListID);
+        var camlQuery = new SP.CamlQuery();
+        camlQuery.set_viewXml('<View Scope=\'RecursiveAll\'>' +
+                                '<Query>' +
+                                    '<Where>' +
+                                    '<Eq>' +
+                                        '<FieldRef Name=' + '\'' + hiddenListUserFieldName + '\'' + '/>' +
+                                        '<Value Type=\'Text\'>' + userName + '</Value>' +
+                                    '</Eq>' +
+                                    '</Where>' +
+                                '</Query>' +
+                       '</View>');
+
+
+        this.collListItems = oList.getItems(camlQuery);
+        context.load(this.collListItems);
+        context.executeQueryAsync(Function.createDelegate(this, function () { onIsUserHavingPermissionsOnInstrumentSucceeded(instrumentNames); }),
+                                  Function.createDelegate(this, onIsUserHavingPermissionsOnInstrumentFailed));
+    }
+    catch (e) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + 'checkUserPermissionsOnInstrument' + '\n' + e.description + '\n' + e.message);
+
+    }
+    finally {
+    }
+
+    function onIsUserHavingPermissionsOnInstrumentSucceeded(instrumentNames) {
+        try {
+            var listItemEnumerator = this.collListItems.getEnumerator();
+            document.getElementById('originalValues').value = '';
+            instrumentNames = instrumentNames + ';';
+            while (listItemEnumerator.moveNext()) {
+                var oListItem = listItemEnumerator.get_current();
+                var instrumentName = oListItem.get_item(hiddenListInstrumentFieldName)
+                var boolIsHavingPermissions = false;
+                if (instrumentNames.indexOf(instrumentName + ';') != -1) {
+                    document.getElementById(instrumentName).checked = true;
+                }
+
+            }
+
+            var temp = '';
+            var arrInstrumentNames = instrumentNames.split(';');
+            for (var i = 0; i < arrInstrumentNames.length; i++) {
+                if (arrInstrumentNames[i] != '') {
+                    if (temp == '') {
+                        temp = arrInstrumentNames[i] + ';' + getCheckBoxVale(arrInstrumentNames[i]);
+                    }
+                    else {
+                        temp = temp + ';' + arrInstrumentNames[i] + ';' + getCheckBoxVale(arrInstrumentNames[i]);
+                    }
+                }
+            }
+            document.getElementById('originalValues').value = temp;
+
+        }
+        catch (e) {
+            //var lblResult = $('#lblResult').val();
+            //$('#lblResult').val(lblResult + '\n' + 'onIsUserHavingPermissionsOnInstrumentSucceeded' + '\n' + e.description + '\n' + e.message);
+
+        }
+        finally {
+            //enableDisableControls(false, 'btnFetch');
+            setTimeout(function () { $('#' + 'btnFetch').prop('disabled', false); }, 2000);
+        }
+    }
+    function onIsUserHavingPermissionsOnInstrumentFailed(sender, args) {
+
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + 'onIsUserHavingPermissionsOnInstrumentFailed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+    }
+}
+
+function addTableRow(instrumentName) {
+
+    var table = document.getElementById('resultTable');
+    var rowCount = table.rows.length;
+    var row;
+    if (rowCount > 0) {
+        if (table.rows[rowCount - 1].cells.length < 4) {
+            row = table.rows[rowCount - 1];
+        }
+        else {
+            row = table.insertRow(rowCount);
+            rowCount = rowCount + 1;
+        }
+    }
+    else {
+        row = table.insertRow(rowCount);
+        rowCount = rowCount + 1;
+    }
+
+    if (rowCount == 1 || rowCount == 0 || rowCount == 2) {
+
+        if (rowCount == 2) {
+            row.style.backgroundColor = 'lightblue';
+        }
+        else {
+            row.style.backgroundColor = 'lightgray';
+        }
+    }
+    else {
+        if (rowCount % 2 == 0) {
+            row.style.backgroundColor = 'lightblue';
+        }
+        else {
+
+            row.style.backgroundColor = 'lightgray';
+        }
+    }
+    var cell1 = row.insertCell(0);
+    cell1.width = "100px";
+    cell1.align = "center";
+
+    var element1 = document.createElement("input");
+    element1.type = "checkbox";
+    element1.id = instrumentName;
+    cell1.appendChild(element1);
+
+    var cell2 = row.insertCell(1);
+    cell2.innerHTML = "&nbsp;&nbsp;" + instrumentName;
+}
+
+
+//******************************Button Save Event Handlers and Supporting Functions********************************************************
+//1. Identify what are all the items(checkboxes) changed 
+//2. if the item is changed to unchecked from checked then remove the permissions
+//3. if the item is changed to checked from unchecked then grant permissions the permissions
+//4. while removing and granting permissions check wether user having the permission on Instrument Lib
+//5. Create entry in hidden list if grant the permissions
+//6. Remove entry in hidden list if remove the permissions
+
+function btnSave_Click() {
+    try {
+
+        SetProgressBar(true);
+        ShowHideResultDiv(false,'resultDiv');
+        enableDisableControls(true, 'btnSave');
+        var originalValues = document.getElementById('originalValues').value;
+        var arrOriginalValues = originalValues.split(';');
+        var ItemsToRemovePermissions = '';
+        var ItemsToGrantPermissions = '';
+        var anyCheckboxChecked = false;
+        for (var i = 0; i < arrOriginalValues.length; i= i+2) {
+            if (arrOriginalValues[i] != '') {
+                var instrumentName = arrOriginalValues[i];
+                var originalValue = arrOriginalValues[i + 1];
+                var updatedValue = document.getElementById(instrumentName).checked;
+                if(updatedValue == true)
+                {
+                    anyCheckboxChecked = true;
+                }
+                if (originalValue != updatedValue) {
+                    if (originalValue == 'true' && updatedValue == false) {
+                        if (ItemsToRemovePermissions == '') {
+                            ItemsToRemovePermissions = instrumentName;
+                        }
+                        else {
+                            ItemsToRemovePermissions = ItemsToRemovePermissions + ';' + instrumentName;
+                        }
+
+                    }
+                    else if (originalValue == 'false' && updatedValue == true) {
+                        if (ItemsToGrantPermissions == '') {
+                            ItemsToGrantPermissions = instrumentName;
+                        }
+                        else {
+                            ItemsToGrantPermissions = ItemsToGrantPermissions + ';' + instrumentName;
+                        }
+
+                    }
+                }
+            }
+        }
+
+        if (ItemsToRemovePermissions != '') {
+            removePermissionsOnItem(ItemsToRemovePermissions);
+        }
+        if (ItemsToGrantPermissions != '') {
+            grantPermissionsOnItem(ItemsToGrantPermissions);
+        }
+
+        if (ItemsToRemovePermissions != '' || ItemsToGrantPermissions != '') {
+
+            if (anyCheckboxChecked) {
+                grantOrRemovePermissionsOnLib(true);
+            }
+            else {
+                grantOrRemovePermissionsOnLib(false);
+            }
+        }
+
+    }
+    catch (e) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + 'btnSave_Click' + '\n' + e.description + '\n' + e.message);
+
+    }
+    finally {
+        SetProgressBar(false);
+    }
+}
+
+function grantOrRemovePermissionsOnLib(calledOnGrant) {
+    try {
+         
+        this.web = appContextSite.get_web();
+        var oList = this.web.get_lists().getByTitle(hiddenListName);
+
+        var userName = getSelectedValue(userDropDownListID); 
+        var camlQuery = new SP.CamlQuery();
+        camlQuery.set_viewXml("<Where>" +
+                                      "<Eq>" +
+                                        "<FieldRef Name='" + hiddenListUserFieldName + "' />" +
+                                         "<Value Type='Text'>" + userName + "</Value >" +
+                                     "</Eq>" +
+                             "</Where>");
+     
+        this.collListItems = oList.getItems(camlQuery);
+        context.load(this.collListItems);
+        context.executeQueryAsync(Function.createDelegate(this, function () { ongrantOrRemovePermissionsOnLibSucceeded(calledOnGrant);}),
+                                  Function.createDelegate(this, ongrantOrRemovePermissionsOnLibFailed));
+
+    }
+    catch (e) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + 'grantOrRemovePermissionsOnLib' + '\n' + e.description + '\n' + e.message);
+
+    }
+  
+
+    function ongrantOrRemovePermissionsOnLibSucceeded(calledOnGrant) {
+        var listItemEnumerator = this.collListItems.getEnumerator();
+        var count = 0;
+        while (listItemEnumerator.moveNext()) {
+            count++;
+        }
+
+        if (calledOnGrant) {
+            if (count > 0) {
+                grantPermissionsOnLib();
+            }
+        }
+        else {
+            removePermissionsOnLib();
+        }
+    }
+
+    function ongrantOrRemovePermissionsOnLibFailed() {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + 'grantOrRemovePermissionsOnLib' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+
+    }
+
+}
+
+function grantPermissionsOnLib() {
+    this.web = appContextSite.get_web();
+    var oList = this.web.get_lists().getByTitle(InstrumentDocName);
+    oList.breakRoleInheritance(true, false);
+    var userLoginName = getSelectedValue(userDropDownListID);
+    var userobj = this.web.ensureUser(userLoginName);
+    var role = SP.RoleDefinitionBindingCollection.newObject(context);
+    role.add(this.web.get_roleDefinitions().getByType(SP.RoleType.reader));
+    oList.get_roleAssignments().add(userobj, role)
+
+    context.executeQueryAsync(Function.createDelegate(this, onGrantPermissionsOnLibSucceeded),
+                              Function.createDelegate(this, onGrantPermissionsOnLibFailed));
+
+    function onGrantPermissionsOnLibSucceeded() {
+    }
+    function onGrantPermissionsOnLibFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' +'Grant permissions on Instrument Doc Lib Failed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+    }
+}
+
+function removePermissionsOnLib() {
+   
+    this.web = appContextSite.get_web();
+    var oList = this.web.get_lists().getByTitle(InstrumentDocName);
+    var userLoginName = getSelectedValue(userDropDownListID);
+    var userobj = this.web.ensureUser(userLoginName);
+    oList.get_roleAssignments().getByPrincipal(userobj).deleteObject();
+    context.executeQueryAsync(Function.createDelegate(this, onRemovePermissionsOnLibSucceeded),
+                              Function.createDelegate(this, onRemovePermissionsOnLibFailed));
+
+    function onRemovePermissionsOnLibSucceeded() {
+    }
+    function onRemovePermissionsOnLibFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' +'Remove permissions on Instrument Lib failed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+    }
+
+
+}
+
+function grantPermissionsOnItem(itemTitles) {
+
+    this.web = appContextSite.get_web();
+    var myList = this.web.get_lists().getByTitle(InstrumentPagesName);
+    var camlQuery = new SP.CamlQuery();
+    camlQuery.set_viewXml('<View><RowLimit>1000</RowLimit></View>');
+    this.collListItems4 = myList.getItems(camlQuery);
+    context.load(this.collListItems4);
+    context.executeQueryAsync(Function.createDelegate(this, function () { ongetPagesSucceeded(itemTitles); }),
+                              Function.createDelegate(this, ongetPageFailed));
+
+
+    function ongetPagesSucceeded(itemTitles) {
+
+        var listItemEnumerator = this.collListItems4.getEnumerator();
+        itemTitles = itemTitles + ';';
+        while (listItemEnumerator.moveNext()) {
+            var oListItem = listItemEnumerator.get_current();
+
+            var instrumentName = oListItem.get_item('Title')
+            if (itemTitles.indexOf(instrumentName + ';') != -1) {
+
+                oListItem.breakRoleInheritance(true, false);
+                var userLoginName = getSelectedValue(userDropDownListID);
+                var userobj = this.web.ensureUser(userLoginName);
+                var role = SP.RoleDefinitionBindingCollection.newObject(context);
+                role.add(this.web.get_roleDefinitions().getByType(SP.RoleType.reader));
+                oListItem.get_roleAssignments().add(userobj, role)
+                addListItem(instrumentName, userLoginName);
+                context.executeQueryAsync(Function.createDelegate(this, function () { onGrantPermissionsOnItemSucceeded(instrumentName); }),
+                            Function.createDelegate(this, onGrantPermissionsOnItemFailed));
+
+            }
+        }
+    }
+    function ongetPageFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+         $('#lblResult').val(lblResult + '\n' +'Get Page Failed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+    }
+    function onGrantPermissionsOnItemSucceeded(isntrumentName) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + ' - Grant Permissions successfully applied');
+    }
+    function onGrantPermissionsOnItemFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val( lblResult + '\n' +'Grant Permissions On Item Failed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+    }
+
+
+}
+
+function removePermissionsOnItem(itemTitles) {
+
+    this.web = appContextSite.get_web();
+    var myList = this.web.get_lists().getByTitle(InstrumentPagesName);
+    //var myListItem = myList.get_items().getById(itemid);
+
+    var camlQuery = new SP.CamlQuery();
+    //var camlQuery = SP.CamlQuery.createAllItemsQuery();
+
+    camlQuery.set_viewXml('<View><RowLimit>1000</RowLimit></View>');
+    this.collListItems2 = myList.getItems(camlQuery);
+    context.load(this.collListItems2);
+    context.executeQueryAsync(Function.createDelegate(this, function () { ongetPagesRemoveContextSucceeded(itemTitles); }),
+                              Function.createDelegate(this, onremovePermissionsOnItemFailed));
+
+    function ongetPagesRemoveContextSucceeded(itemTitles) {
+
+        var listItemEnumerator = this.collListItems2.getEnumerator();
+        itemTitles = itemTitles + ';';
+        while (listItemEnumerator.moveNext()) {
+            var oListItem = listItemEnumerator.get_current();
+
+            var instrumentName = oListItem.get_item('Title')
+            if (itemTitles.indexOf(instrumentName + ';') != -1) {
+
+                oListItem.breakRoleInheritance(true, false);
+                var userLoginName = getSelectedValue(userDropDownListID);
+                var userobj = this.web.ensureUser(userLoginName);
+                oListItem.get_roleAssignments().getByPrincipal(userobj).deleteObject();
+
+                context.executeQueryAsync(Function.createDelegate(this, function () { onremovePermissionsOnItemSucceeded(itemTitles); }),
+                            Function.createDelegate(this, ongetPageRemoveContextFailed));
+
+            }
+        }
+        deleteListItems(itemTitles, getSelectedValue(userDropDownListID));
+    }
+    function ongetPageRemoveContextFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' +'Get Pages to remove permissions Failed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+
+    }
+
+    function onremovePermissionsOnItemSucceeded(itemTitles) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + ' - Remove Permissions successfully applied');
+    }
+    function onremovePermissionsOnItemFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+         $('#lblResult').val(lblResult + '\n' +'Remove Permissions On Item Failed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+
+    }
+}
+
+function addListItem(instrumentName, userName) {
+
+    var oList = this.web.get_lists().getByTitle(hiddenListName);
+    var itemCreateInfo = new SP.ListItemCreationInformation();
+    var oListItem = oList.addItem(itemCreateInfo);
+
+    oListItem.set_item(hiddenListInstrumentFieldName, instrumentName);
+    oListItem.set_item(hiddenListUserFieldName, userName);
+
+    oListItem.update();
+    context.load(oListItem);
+    context.executeQueryAsync(Function.createDelegate(this, onQueryAddListItemSucceeded), Function.createDelegate(this, onQueryAddListItemFailed));
+
+    function onQueryAddListItemSucceeded() {
+    }
+    function onQueryAddListItemFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' +'Add List Item Failed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+
+    }
+
+}
+
+function deleteListItems(instrumentNames, userName) {
+
+    var oList = this.web.get_lists().getByTitle(hiddenListName);
+    var camlQuery = new SP.CamlQuery();
+    camlQuery.set_viewXml("<Where>" +
+                                  "<Eq>" +
+                                    "<FieldRef Name='" + hiddenListUserFieldName + "' />" +
+                                     "<Value Type='Text'>" + userName + "</Value >" +
+                                 "</Eq>" +
+                         "</Where>");
+
+    this.collListItems3 = oList.getItems(camlQuery);
+    context.load(this.collListItems3);
+    context.executeQueryAsync(Function.createDelegate(this, function () { onRetrieveHiddenListItemsSucceeded(instrumentNames);}),
+                              Function.createDelegate(this, onRetrieveHiddenListItemsFailed));
+
+
+    function onRetrieveHiddenListItemsSucceeded(instrumentNames) {
+        
+        instrumentNames = instrumentNames + ';';
+        var listItemEnumerator = this.collListItems3.getEnumerator();
+        var j = 0;
+        var arrDeleteListEnum = new Array();
+        while (listItemEnumerator.moveNext()) {
+            var oListItem = listItemEnumerator.get_current();
+            var instrumentName = oListItem.get_item(hiddenListInstrumentFieldName)
+            if (instrumentNames.indexOf(instrumentName + ';') != -1) {
+                arrDeleteListEnum[j] = oListItem;
+                j++;
+            }
+        }
+
+        for (var i = 0; i < arrDeleteListEnum.length; i++) {
+            arrDeleteListEnum[i].deleteObject();
+        }
+        context.executeQueryAsync(Function.createDelegate(this, onDeleteItemSuccess), Function.createDelegate(this, onDeleteItemFailed));
+
+    }
+    function onRetrieveHiddenListItemsFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' +'Retrieve Distributor ListItems Failed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+    }
+
+    function onDeleteItemSuccess(sender, args) {
+    }
+    function onDeleteItemFailed(sender, args) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' +'Delete List Item Failed' + '\n' + args.get_message() + '\n' + args.get_stackTrace());
+    }
+
+}
+
+
+
+//****************************************************Button Click event handlers*********************************************************
+function btnCancel_Click() {
+    try {
+        SetProgressBar(true);
+        CleanTable();
+        $('#lblResult').val('');
+        $('#originalValues').val('');
+    }
+    catch (e) {
+        var lblResult = $('#lblResult').val();
+        $('#lblResult').val(lblResult + '\n' + 'btnCancel_Click' + '\n' + e.description + '\n' + e.message);
+
+    }
+    finally {
+        SetProgressBar(false);
+    }
+
+}
+
+
+//***************************************************************Create Result table***********************************************
+
+//UI Functions
+function getSelectedValue(controlName) {
+    var e = document.getElementById(controlName);
+    var strSelectedValue = e.options[e.selectedIndex].value;
+    return strSelectedValue;
+}
+
+function getSelectedText(controlName) {
+    var e = document.getElementById(controlName);
+    var strSelectedValue = e.options[e.selectedIndex].text;
+    return strSelectedValue;
+}
+
+function getCheckBoxVale(controlName) {
+    var checkedValue = document.getElementById(controlName).checked;
+    return checkedValue;
+}
+
+function CleanTable(tableID) {
+    try {
+        var table = document.getElementById('resultTable');
+        var rowCount = table.rows.length;
+        for (var i = 0; i < rowCount; i++) {
+            var row = table.rows[i];
+            table.deleteRow(i);
+            rowCount--;
+            i--;
+        }
+    } catch (e) {
+    
+    }
+}
+
+function SetProgressBar(show) {
+
+    if (show) {
+        document.getElementById('progress').style.visibility = 'visible';
+    }
+    else {
+        document.getElementById('progress').style.visibility = 'hidden';
+    }
+}
+
+function ShowHideResultDiv(show,controlName) {
+    if (show) {
+        $('#' + controlName).show(2000);
+    }
+    else {
+        $('#' + controlName).hide(2000);
+    }
+}
+
+function enableDisableControls(disable, controlName) {
+    if (disable) {
+        $('#' + controlName).prop('disabled', true);
+    }
+    else {
+        $('#' + controlName).prop('disabled', false);
+    }
+}
+
