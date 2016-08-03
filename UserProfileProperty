@@ -1,0 +1,97 @@
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script src="/_layouts/15/sp.runtime.js" type="text/javascript"></script>
+<script src="/_layouts/15/sp.js" type="text/javascript"></script>
+<script src="/_layouts/15/sp.search.js" type="text/javascript"></script>
+<script src="/_layouts/15/sp.UserProfiles.js" type="text/javascript"></script>
+ 
+<script type="text/javascript">
+    $(document).ready(function () {
+ 
+        $("#btnSearch").click(function () {
+            users = [];
+            userProfileProperties = [];
+            SP.SOD.executeFunc('sp.js', 'SP.ClientContext', getAllUsers);
+ 
+        });
+ 
+ 
+    });
+ 
+    var users = [];
+    var userProfileProperties = [];
+ 
+    //Method to fetch all the users
+    function getAllUsers() {
+ 
+        //Textbox value containing search term
+        var searchTerm = $("#txtSearchBox").val();
+ 
+        clientContext = new SP.ClientContext.get_current();
+         
+        //Building Keyword query for the search
+        var keywordQuery = new Microsoft.SharePoint.Client.Search.Query.KeywordQuery(clientContext);
+        keywordQuery.set_queryText(searchTerm);
+        keywordQuery.set_sourceId("B09A7990-05EA-4AF9-81EF-EDFAB16C4E31");
+        keywordQuery.set_rowLimit(500);
+        keywordQuery.set_trimDuplicates(false);
+ 
+        var searchExecutor = new Microsoft.SharePoint.Client.Search.Query.SearchExecutor(clientContext);
+        results = searchExecutor.executeQuery(keywordQuery);
+         
+        clientContext.executeQueryAsync(onQuerySuccess, onQueryError);
+ 
+ 
+    }
+    function onQueryError(sender, args) {
+        alert(args.get_message());
+    }
+    function onQuerySuccess() {
+ 
+       $.each(results.m_value.ResultTables[0].ResultRows, function () {
+            users.push(this.AccountName);
+ 
+        });
+ 
+        fetchProfilePropertiesForUsers();
+ 
+    }
+ 
+    
+    function fetchProfilePropertiesForUsers() {
+ 
+        var peopleManager = new SP.UserProfiles.PeopleManager(clientContext);
+ 
+        var profilePropertyNames = ["FirstName", "PictureURL", "AboutMe", "Title", "AccountName"];
+ 
+        for (var i = 0; i < users.length; i++) {
+            var userProfilePropertiesForUser = new SP.UserProfiles.UserProfilePropertiesForUser(clientContext, users[i], profilePropertyNames);
+            userProfileProperties[i] = peopleManager.getUserProfilePropertiesFor(userProfilePropertiesForUser);
+        }
+ 
+        clientContext.executeQueryAsync(onSuccess, onQueryError);
+    }
+ 
+    function onSuccess() {
+         
+        var html = "<style type='text/css'> .floatL {float:left;margin:10px;} .floatR {padding-top:10px} .profile {padding:10px 10px;} .editProfile{margin-left:100px;}  div>img {height:72px;width:72px;} </style>";
+        for (var i = 0; i < userProfileProperties.length; i++) {
+ 
+           html += "<div class='profile'><div class='floatL'><img src='" + userProfileProperties[i][1] + "' href='#' /></div><div class='floatR'><h2><span>" + userProfileProperties[i][0] + "</span></h2><span>About Me : " + userProfileProperties[i][2] + "</span><br /><span>Title: </span><a href='" + userProfileProperties[i][3] + "'>" + userProfileProperties[i][3] + "</a><br /></div></div><br />";
+            
+ 
+        }
+ 
+        $("#divUserProfiles").html(html);
+ 
+    }
+ 
+     
+ 
+ 
+</script>
+ 
+ 
+<input type="text" id="txtSearchBox" /> <input id="btnSearch" type="button" value="Search Users" />
+ 
+<div id="divUserProfiles"></div>
