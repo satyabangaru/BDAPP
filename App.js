@@ -88,7 +88,9 @@ function InsertItemToList(loginname) {
     //var userField = this.users.get_id() + ";#" + this.users.get_loginName() + ";" + this.users.get_id() + ";#" + this.users.get_loginName();
     listItem.set_item("Title", "Title1");
     this.user = ctx.get_web().ensureUser(loginname);
+    var department = fetchProfilePropertiesforUser(ctx, this.user);
     listItem.set_item("AssignedTo", this.user);
+    listItem.set_item("Department", department);
     listItem.update(); //Update the List Item  
     ctx.load(listItem);
     //Execute the batch Asynchronously  
@@ -98,6 +100,18 @@ function InsertItemToList(loginname) {
     );
 }
 
+function fetchProfilePropertiesforUser(appCtxSite, user)
+{
+    var userProfileProperties = [];
+    var PeopleManager = new SP.UserProfiles.PeopleManager(appCtxSite);
+    var ProfilePropertyNames = ["Title", "Department"];
+    var userProfilePropertiesForUser = new SP.UserProfiles.UserProfilePropertiesForUser(appCtxSite, users, ProfilePropertyNames);
+    userProfileProperties = PeopleManager.getUserProfilePropertiesFor(userProfilePropertiesForUser);
+    return userProfileProperties[1];
+}
+//function onSuccess() {
+//    userProfileProperties[i][1]
+//}
 function success() {
     alert("Item added successfully");
 }
