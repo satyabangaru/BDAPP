@@ -1,0 +1,131 @@
+ar hostweburl;
+ 
+var appweburl;
+ 
+var reviewGroupId;
+ 
+// This code runs when the DOM is ready and creates a context object which is needed to use the SharePoint object model
+ 
+$(document).ready(function () {
+ 
+hostweburl =
+ 
+decodeURIComponent(
+ 
+getQueryStringParameter("SPHostUrl")
+ 
+);
+ 
+appweburl =
+ 
+decodeURIComponent(
+ 
+getQueryStringParameter("SPAppWebUrl")
+ 
+);
+ 
+loadDependentScripts();
+ 
+});
+ 
+function loadDependentScripts() {
+ 
+var scriptbase = hostweburl + "/_layouts/15/";
+ 
+// Load the js files and continue to the successHandler
+ 
+$.getScript(scriptbase + "SP.Runtime.js",
+ 
+function () {
+ 
+$.getScript(scriptbase + "SP.js",
+ 
+function () { $.getScript(scriptbase + "SP.RequestExecutor.js", LoadInitial); }
+ 
+);
+ 
+}
+ 
+);
+ 
+}
+ 
+function LoadInitial() {
+ 
+var executor = new SP.RequestExecutor(appweburl);
+ 
+executor.executeAsync({
+ 
+url: appweburl + "/_api/SP.AppContextSite(@target)/web/SiteGroups/getbyname('Reviewers')?@target='" + hostweburl + "'",
+ 
+method: "GET",
+ 
+headers: { "Accept": "application/json;odata=verbose" },
+ 
+success: getGroupIdSuccessHandler,
+ 
+error: getGroupIdErrorHandler
+ 
+});
+ 
+}
+ 
+function getGroupIdSuccessHandler(data) {
+ 
+var jsonObject = JSON.parse(data.body);
+ 
+reviewGroupId = jsonObject.d.Id;
+ 
+initializePeoplePicker('reviewerDiv',reviewGroupId);
+ 
+}
+ 
+function getGroupIdErrorHandler(data, errorCode, errorMessage) {
+ 
+alert("Could not get the information:" + errorMessage);
+ 
+}
+ 
+function initializePeoplePicker(peoplePickerElementId, Id) {
+ 
+// Create a schema to store picker properties, and set the properties.
+ 
+var schema = {};
+ 
+schema['PrincipalAccountType'] = 'User,DL,SecGroup,SPGroup';
+ 
+schema['SearchPrincipalSource'] = 15;
+ 
+schema['ResolvePrincipalSource'] = 15;
+ 
+schema['AllowMultipleValues'] = false;
+ 
+schema['MaximumEntitySuggestions'] = 50;
+ 
+schema['Width'] = '280px';
+ 
+schema['SharePointGroupID'] = Id;
+ 
+SPClientPeoplePicker_InitStandaloneControlWrapper(peoplePickerElementId, null, schema);
+ 
+}
+ 
+function getQueryStringParameter(paramToRetrieve) {
+ 
+var params =
+ 
+document.URL.split("?")[1].split("&");
+ 
+var strParams = "";
+ 
+for (var i = 0; i < params.length; i = i + 1) {
+ 
+var singleParam = params[i].split("=");
+ 
+if (singleParam[0] == paramToRetrieve)
+ 
+return singleParam[1];
+ 
+}
+ 
+}
