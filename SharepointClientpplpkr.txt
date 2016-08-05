@@ -1,0 +1,17 @@
+<asp:Content ContentPlaceHolderID="PlaceHolderMain" runat="server">  
+ <SharePoint:ClientPeoplePicker AllowEmailAddresses="true" Required="true" ValidationEnabled="true" ID="peoplePicker"   
+  runat="server" VisibleSuggestions="3" Rows="1" PrincipalAccountType="User,DL,SecGroup,SPGroup" AllowMultipleEntities="true" CssClass="ms-long ms-spellcheck-true" Height="85px" />  
+</asp:Content>  
+
+
+var peoplePicker = this.SPClientPeoplePicker.SPClientPeoplePickerDict.peoplePicker_TopSpan;  
+var users = peoplePicker.GetAllUserInfo();  
+ var userInfo = '';  
+for (var i = 0; i < users.length; i++) {  
+var user = users[i];  
+ var userobj = oWebsite.ensureUser(user["Key"].split('|')[2]);  
+ userInfo += userobj + ' ' ;
+}
+
+
+where peoplePicker_TopSpan is the id of people Picker Control.
