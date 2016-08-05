@@ -1,0 +1,259 @@
+ Here is the answer:-
+
+Add the reference to your app part
+<script type="text/javascript" src="/_layouts/15/sp.runtime.js"></script>
+    <script type="text/javascript" src="/_layouts/15/sp.js"></script>
+     <script type="text/javascript" src="/_layouts/15/SP.UserProfiles.js"></script>
+    <script src="../Scripts/jquery-ui.js"></script>
+    <link href="../Content/jquery-ui.css" rel="stylesheet" />
+
+Add this snippet to Your Page or App Part
+
+<table class="Page_content" border="0" cellpadding="5" cellspacing="5" class="wzrdStep4_Table" width="100%">
+                <tr>
+                    <td>
+                        <div id="divPeoplePicker" class="ui-widget">
+                            <label for="tags">Select User </label><br />
+                            <input id="tags" onkeyup="Validate(this,'validatorStep4_tags','Please Specify User.')"><input type="button" id="btnGetUserDetails" onclick="getSelectedUserDetails();" value="Get Details"/ disabled="disabled"><br />
+                              </div>
+                         <div id="validatorStep4_tags" style="color: red; visibility: visible;">
+                        </div>
+                        <select id="ddPeoplePicker" style="display:none;"></select>
+
+
+                        <div id="validatorStep4_User" style="color: red; visibility: visible;">
+                        </div>
+                    </td>
+                </tr>
+               
+                <tr>
+                    <td>
+                        <label id="lblwzrd4DisplayName" style="vertical-align: top">Contact Name:</label>
+                        <span class="redAsterisk">*</span>
+                        <br />
+                        <input type="text" id="txtwzrd4DisplayName"  onkeyup="Validate(this,'validatorStep4_DisplayName','Please Specify Contact Name.')" width="90%" maxlength="250" />
+                        <br />
+
+
+                        <div id="validatorStep4_DisplayName" style="color: red; visibility: visible;">
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label id="lblwzrd4URL" style="vertical-align: top">Title:</label>
+                        <span class="redAsterisk">*</span>
+                        <br />
+                        <input type="text" id="txtwzrd4Title"  onkeyup="Validate(this,'validatorStep4_Title','Please Specifi Title')" width="90%" maxlength="250" value="" />
+                        <br />
+
+
+                        <div id="validatorStep4_Title" style="color: red; visibility: visible;">
+                        </div>
+                    </td>
+                </tr>
+                 <tr>
+                    <td>
+                        <label id="lblwzrd4WorkEmail" style="vertical-align: top">Work Email:</label>
+                        <span class="redAsterisk">*</span>
+                        <br />
+                        <input type="text" id="txtwzrd4WorkEmail"  onkeyup="Validate(this,'validatorStep4_WorkEmail','Please Specifi Work Email')" width="90%" maxlength="250" value="" />
+                        <br />
+
+                        <div id="validatorStep4_WorkEmail" style="color: red; visibility: visible;">
+                        </div>
+                    </td>
+                </tr>
+                 <tr>
+                    <td>
+                        <label id="lblwzrd4WorkPhone" style="vertical-align: top">Work Phone:</label>
+                        <span class="redAsterisk">*</span>
+                        <br />
+                        <input type="text" id="txtwzrd4WorkPhone"  onkeyup="Validate(this,'validatorStep4_WorkPhone','Please Specifi Work Phone')" width="90%" maxlength="250" value="" />
+                        <br />
+
+
+                        <div id="validatorStep4_WorkPhone" style="color: red; visibility: visible;">
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label id="lblwzrd4Contact" style="vertical-align: top">Contact Me For:</label>
+                        <span class="redAsterisk">*</span>
+                        <br />
+                        <textarea style="resize:none;" id="txtwzrd4Contact" rows="3" cols="30" onkeyup="Validate(this,'validatorStep4_Contact','Please Specifi Contact For Me')"></textarea>
+                        <br />
+                        <div id="validatorStep4_Contact" style="color: red; visibility: visible;">
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+
+JavaScript Snippet
+function getAllUserProfile(Success, Error) {
+    var clientContext = new SP.ClientContext.get_current();
+    var web = clientContext.get_web();
+
+    var users = web.get_siteUsers();
+    clientContext.load(users);
+    clientContext.executeQueryAsync(
+    function () {
+        //debugger;
+        var peopleManager = new SP.UserProfiles.PeopleManager(clientContext);
+        var personsProperties = [];
+        var personsDisplayName = [];
+        for (var i = 0; i < users.get_count() ; i++) {
+            var user = users.getItemAtIndex(i);
+            var userName = peopleManager.getUserProfilePropertyFor(user.get_loginName(), 'PreferredName');
+            var workEmail = peopleManager.getUserProfilePropertyFor(user.get_loginName(), 'AccountName');
+            personsProperties.push(userName);
+            personsDisplayName.push(workEmail);
+        }
+
+        clientContext.executeQueryAsync(
+            function () {
+                //debugger;
+
+                Success(personsProperties, personsDisplayName);
+            },
+            Error);
+
+    },
+    Error);
+
+
+
+}
+var availTags = [];
+function getUserInDropDownAndInTextBox() {
+    debugger;
+
+        getAllUserProfile(function (usersProperties, personsDisplayName) {
+            debugger;
+            $('#ddPeoplePicker').empty();
+             availTags = [];
+            for (var i = 0; i < usersProperties.length; i++) {
+                var dropdown = document.getElementById("ddPeoplePicker");
+                var option = document.createElement("option");
+                if (usersProperties[i].get_value()) {
+                     //console.log(usersProperties[i].get_value());
+                    //console.log(personsDisplayName[i].get_value());
+                    option.text = usersProperties[i].get_value()
+                    option.value = personsDisplayName[i].get_value();
+                    dropdown.add(option);
+                    availTags.push(usersProperties[i].get_value());
+                }
+                else {
+
+
+
+                }
+
+            }
+            $("#tags").autocomplete({
+               
+                source: availTags,
+                select: function (e) {
+                    $("#btnGetUserDetails").attr('disabled', false);
+                },
+                minLength: 3
+            }).keyup(function () {
+                var isValid = false;
+                for (i in availTags) {
+                    if (availTags[i].toLowerCase().match(this.value.toLowerCase())) {
+                        isValid = true;
+                    }
+                }
+                if (!isValid) {//not match
+                    $("#btnGetUserDetails").attr('disabled', true);
+                    document.getElementById("validatorStep4_tags").style.display = "block";
+                    document.getElementById("validatorStep4_tags").innerText = "User Not Found";
+                    Communica.Part.adjustSize();
+
+
+                } else {
+                    $("#btnGetUserDetails").attr('disabled', true);
+                    previousValue = this.value;
+                    document.getElementById("validatorStep4_tags").style.display = "none";
+                }
+            });
+        },
+        function (sender, args) {
+            console.log(args.get_message());
+        });
+
+}
+
+function getSelectedUserDetails() {
+    debugger;
+    var suggestionValue = $('#tags').val()
+    if (suggestionValue == "") {
+      
+    }
+    else {
+
+  
+    $("#ddPeoplePicker option").filter(function (index) { return $(this).text() === suggestionValue; }).attr('selected', 'selected');
+
+    var userId = $('#ddPeoplePicker').val();
+   // alert(userId);
+    getUserProperties(userId)
+    }
+}
+
+
+var targetUser="";
+function getUserProperties(userId) {
+
+    // Replace the placeholder value with the target user's credentials.
+     targetUser = userId;
+
+    // Get the current client context and PeopleManager instance.
+    var clientContext = new SP.ClientContext.get_current();
+    var peopleManager = new SP.UserProfiles.PeopleManager(clientContext);
+
+    // Specify the properties to retrieve and target user for the
+    // UserProfilePropertiesForUser object.
+    var profilePropertyNames = ["PreferredName", "Title", "WorkEmail", "WorkPhone"];
+    var userProfilePropertiesForUser =
+        new SP.UserProfiles.UserProfilePropertiesForUser(
+            clientContext,
+            targetUser,
+            profilePropertyNames);
+
+    // Get user profile properties for the target user.
+    // To get the value for only one user profile property, use the
+    // getUserProfilePropertyFor method.
+    userProfileProperties = peopleManager.getUserProfilePropertiesFor(
+        userProfilePropertiesForUser);
+
+    // Load the UserProfilePropertiesForUser object and send the request.
+    clientContext.load(userProfilePropertiesForUser);
+    clientContext.executeQueryAsync(onRequestSuccess, onRequestFail);
+}
+
+// This function runs if the executeQueryAsync call succeeds.
+function onRequestSuccess() {
+    $("#txtwzrd4DisplayName").val(userProfileProperties[0]);
+    $("#txtwzrd4Title").val(userProfileProperties[1]);
+    $("#txtwzrd4WorkEmail").val(userProfileProperties[2]);
+    $("#txtwzrd4WorkPhone").val(userProfileProperties[3]);
+    $("#btnSave").attr('disabled', false);
+    //var messageText = "\"PreferredName\" property is "
+    //    + userProfileProperties[0];
+    //messageText += "<br />\"Title\" property is "
+    //    + userProfileProperties[1];
+    //messageText += "<br />\"email\" property is "
+    //    + userProfileProperties[2];
+    //messageText += "<br />\"phone\" property is "
+    //    + userProfileProperties[3];
+    //alert(messageText);
+    hideErrorMessages();
+}
+
+// This function runs if the executeQueryAsync call fails.
+function onRequestFail(sender, args) {
+    console.log(args.get_message());
+}
