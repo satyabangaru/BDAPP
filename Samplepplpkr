@@ -1,0 +1,63 @@
+$(document).ready(function () {
+    $("#txtPeoplePicker").autocomplete({
+        source: search,
+        minLength: 2
+    });
+    $("#txtPeoplePicker2").autocomplete({
+        source: search,
+        minLength: 2
+    });
+});
+
+function search(request,response) {
+    var appweburl = decodeURIComponent(getQueryStringParameter('SPAppWebUrl'));
+    var hostweburl = decodeURIComponent(getQueryStringParameter('SPHostUrl'));
+ 
+    var restSource = appweburl + "/_api/SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.clientPeoplePickerSearchUser";
+    var principalType = this.element[0].getAttribute('principalType');
+    $.ajax( 
+    {
+        'url':restSource,
+        'method':'POST',
+        'data':JSON.stringify({
+            'queryParams':{
+                '__metadata':{
+                    'type':'SP.UI.ApplicationPages.ClientPeoplePickerQueryParameters'
+                },
+                'AllowEmailAddresses':true,
+                'AllowMultipleEntities':false,
+                'AllUrlZones':false,
+                'MaximumEntitySuggestions':50,
+                'PrincipalSource':15,
+                'PrincipalType': principalType,
+                'QueryString':request.term
+                //'Required':false,
+                //'SharePointGroupID':null,
+                //'UrlZone':null,
+                //'UrlZoneSpecified':false,
+                //'Web':null,
+                //'WebApplicationID':null
+            }
+        }),
+        'headers':{
+            'accept':'application/json;odata=verbose',
+            'content-type':'application/json;odata=verbose',
+            'X-RequestDigest':requestDigest
+        },
+        'success':function (data) { 
+            var d = data;
+            var results = JSON.parse(data.d.ClientPeoplePickerSearchUser);
+            if (results.length > 0) {
+                response($.map(results, function (item) {
+                    return {label:item.DisplayText,value:item.DisplayText}
+                }));
+            }            
+        },
+        'error':function (err) { 
+            alert(JSON.stringify(err)); 
+        }
+    }
+  );
+ 
+ 
+}
